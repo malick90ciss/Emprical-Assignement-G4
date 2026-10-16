@@ -165,3 +165,134 @@ summary(final_data)
 colSums(is.na(final_data))
 
 
+############DESCRIPTIVE STATISTICS AND VISUALIZATIONS#########################
+
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
+# 1. DESCRIPTIVE STATISTICS
+
+descriptive <- final_data %>%
+  
+  select(where(is.numeric),
+         
+         -N_STATIONS_SETTLEMENT,
+         
+         -N_COMPETITORS_SETTLEMENT) %>%
+  
+  summarise(across(
+    
+    everything(),
+    
+    list(
+      
+      Mean = ~mean(.x, na.rm = TRUE),
+      
+      SD = ~sd(.x, na.rm = TRUE),
+      
+      Min = ~min(.x, na.rm = TRUE),
+      
+      Max = ~max(.x, na.rm = TRUE)
+      
+    )
+    
+  )) %>%
+  
+  pivot_longer(
+    
+    everything(),
+    
+    names_to = c("Variable", ".value"),
+    
+    names_pattern = "^(.*)_(Mean|SD|Min|Max)$"
+    
+  ) %>%
+  
+  mutate(across(where(is.numeric), ~round(.x, 2)))
+
+print(descriptive)
+
+write.csv(descriptive, "DESCRIPTIVE_STATISTICS.csv",
+          
+          row.names = FALSE)
+
+# 2. BOXPLOT - DIESEL VS GASOLINE PRICES
+
+fuel_plot <- final_data %>%
+  
+  select(AVG_DIESEL, AVG_GASOLINE) %>%
+  
+  pivot_longer(
+    
+    everything(),
+    
+    names_to = "Fuel",
+    
+    values_to = "Price"
+    
+  )
+
+p1 <- ggplot(fuel_plot, aes(x = Fuel, y = Price, fill = Fuel)) +
+  
+  geom_boxplot(width = 0.5, alpha = 0.8) +
+  
+  scale_fill_manual(values = c(
+    
+    "AVG_DIESEL" = "steelblue",
+    
+    "AVG_GASOLINE" = "orange"
+    
+  )) +
+  
+  labs(
+    
+    title = "Weekly Fuel Prices in Hungary",
+    
+    x = "Fuel Type",
+    
+    y = "Price (HUF/l)"
+    
+  ) +
+  
+  theme_minimal() +
+  
+  theme(legend.position = "none")
+
+print(p1)
+
+ggsave("FUEL_BOXPLOT.png", p1,
+       
+       width = 7, height = 5, dpi = 300)
+
+# 3. GGPLOT - POPULATION DENSITY AND GASOLINE PRICE
+
+p2 <- ggplot(final_data,
+             
+             aes(x = POPULATION_DENSITY,
+                 
+                 y = AVG_GASOLINE)) +
+  
+  geom_point(alpha = 0.45, color = "steelblue") +
+  
+  geom_smooth(method = "lm", se = TRUE,
+              
+              color = "darkred") +
+  
+  labs(
+    
+    title = "Population Density and Gasoline Prices",
+    
+    x = "Population Density (people/km²)",
+    
+    y = "Average Gasoline Price (HUF/l)"
+    
+  ) +
+  
+  theme_minimal()
+
+print(p2)
+
+ggsave("POPULATION_GASOLINE.png", p2,
+       
+       width = 7, height = 5, dpi = 300)
