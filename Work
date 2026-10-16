@@ -9,6 +9,8 @@ library(readxl)
 library(tidyverse)
 library(dplyr)
 library(openxlsx)
+library(stargazer)
+
 file_path <- "C:/Users/pc/Downloads/emperic assigment/2024.10.01-10.07.xlsx"
 
 # 2. IMPORT FUEL DATA
