@@ -1,0 +1,167 @@
+
+# EMPIRICAL ASSIGNMENT - FUEL PRICES IN HUNGARY
+# Data cleaning and merging
+
+# 1. INITIAL SETUP
+rm(list = ls())
+
+library(readxl)
+library(tidyverse)
+library(dplyr)
+library(openxlsx)
+file_path <- "C:/Users/pc/Downloads/emperic assigment/2024.10.01-10.07.xlsx"
+
+# 2. IMPORT FUEL DATA
+
+data <- read_excel(file_path, sheet = "Sheet1")
+
+fuel <- data %>%
+  transmute(
+    DATE = as.Date(Date),
+    SETTLEMENT = as.character(Settlement),
+    COMPANY = as.character(Company),
+    DIESEL = as.numeric(`Diesel (HUF/l)`),
+    GASOLINE = as.numeric(`Gasoline (HUF/l)`)
+  )
+
+# 3. CALCULATE WEEKLY AVERAGE
+
+fuel_weekly <- fuel %>%
+  filter(DATE >= as.Date("2024-10-01"),
+         DATE <= as.Date("2024-10-07")) %>%
+  group_by(SETTLEMENT, COMPANY) %>%
+  summarise(
+    AVG_DIESEL = mean(DIESEL, na.rm = TRUE),
+    AVG_GASOLINE = mean(GASOLINE, na.rm = TRUE),
+    N_DAYS = n_distinct(DATE),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    AVG_DIESEL = na_if(AVG_DIESEL, NaN),
+    AVG_GASOLINE = na_if(AVG_GASOLINE, NaN)
+  )
+
+# Count other settlement-company groups in same settlement
+fuel_weekly <- fuel_weekly %>%
+  group_by(SETTLEMENT) %>%
+  mutate(
+    N_STATIONS_SETTLEMENT = n(),
+    N_COMPETITORS_SETTLEMENT = n() - 1
+  ) %>%
+  ungroup() %>%
+  select(-COMPANY)
+
+# 4. STANDARDIZE SETTLEMENT NAMES
+
+normalize_name <- function(x) {
+  str_to_lower(str_squish(x), locale = "hu")
+}
+
+fuel_weekly <- fuel_weekly %>%
+  mutate(SETTLEMENT_KEY = normalize_name(SETTLEMENT))
+
+# 5. FUNCTION TO IMPORT KSH DATA
+
+read_ksh <- function(sheet, variable) {
+  df <- read_excel(file_path, sheet = sheet) %>%
+    transmute(
+      SETTLEMENT_KEY = normalize_name(SETTLEMENT_NAME),
+      VALUE = as.numeric(VALUE)
+    ) %>%
+    rename(!!variable := VALUE)
+  
+  stopifnot(!anyDuplicated(df$SETTLEMENT_KEY))
+  df
+}
+
+# 6. IMPORT ALL SIX KSH INDICATORS
+
+population <- read_ksh(
+  "Population density, 31st of Dec",
+  "POPULATION_DENSITY"
+)
+
+construction <- read_ksh(
+  "Number of new construction perm",
+  "CONSTRUCTION_PERMITS"
+)
+
+cars <- read_ksh(
+  "Passenger cars per thousand cap",
+  "CARS_PER_1000"
+)
+
+earnings <- read_ksh(
+  "Average monthly gross earnings ",
+  "GROSS_EARNINGS"
+)
+
+arable <- read_ksh(
+  "Share of arable land from the a",
+  "ARABLE_LAND_SHARE"
+)
+
+accidents <- read_ksh(
+  "Number of persons killed or inj",
+  "ROAD_CASUALTIES"
+)
+
+# 7. MERGE KSH INDICATORS
+
+ksh_data <- list(
+  population, construction, cars,
+  earnings, arable, accidents
+) %>%
+  reduce(full_join, by = "SETTLEMENT_KEY")
+
+# 8. MERGE KSH WITH FUEL DATA
+
+final_data <- fuel_weekly %>%
+  left_join(
+    ksh_data,
+    by = "SETTLEMENT_KEY",
+    relationship = "many-to-one"
+  ) %>%
+  select(-SETTLEMENT_KEY)
+
+# Preserve full merged dataset
+final_data_full <- final_data
+
+# 9. REMOVE MISSING VALUES
+# Check missing values before cleaning
+colSums(is.na(final_data))
+
+# Remove incomplete observations
+final_data <- final_data %>%
+  drop_na() %>%
+  filter(!is.na(SETTLEMENT), str_squish(SETTLEMENT) != "")
+
+# Verify no missing values
+stopifnot(!anyNA(final_data))
+
+cat("Observations before:", nrow(final_data_full), "\n")
+cat("Observations after:", nrow(final_data), "\n")
+
+# 10. EXPORT CLEAN DATA
+output_folder <- dirname(file_path)
+
+write.xlsx(
+  final_data,
+  file.path(output_folder, "CLEAN_FUEL_DATA.xlsx"),
+  overwrite = TRUE
+)
+
+write.csv(
+  final_data,
+  file.path(output_folder, "CLEAN_FUEL_DATA.csv"),
+  row.names = FALSE
+)
+
+# 11. VIEW FINAL DATA
+
+View(final_data)
+glimpse(final_data)
+summary(final_data)
+colSums(is.na(final_data))
+
+
