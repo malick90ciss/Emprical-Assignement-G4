@@ -302,12 +302,7 @@ write.csv(
 )
 
 View(final_data)
-
-
-
-# ==========================================================
 # DESCRIPTIVE STATISTICS AND VISUALIZATIONS
-# ==========================================================
 
 output_folder <- dirname(file_path)
 
@@ -435,10 +430,7 @@ ggsave(
   width = 16, height = 7, dpi = 300
 )
 
-
-# ==========================================================
 # REGRESSIONS
-# ==========================================================
 
 # 4. SIX PROGRESSIVE MODELS
 
