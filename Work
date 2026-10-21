@@ -13,7 +13,7 @@ library(ggplot2)
 library(dplyr)
 library(tidyr)
 
-file_path <- "C:/Users/pc/Downloads/emperic assigment/2024.10.01-10.07.xlsx"
+file_path <- "path"
 
 # 2. IMPORT ORIGINAL FUEL DATA
 
@@ -255,8 +255,8 @@ fuel_plot <- final_data %>%
   )
 p1 <- ggplot(fuel_plot, aes(x = Fuel, y = Price, fill = Fuel)) + 
   geom_boxplot(width = 0.5, alpha = 0.8) + 
-scale_fill_manual(values = c(
-   
+  scale_fill_manual(values = c(
+    
     "AVG_DIESEL" = "steelblue",
     
     "AVG_GASOLINE" = "orange"
@@ -283,180 +283,185 @@ ggsave("FUEL_BOXPLOT.png", p1,
        
        width = 7, height = 5, dpi = 300)
 
-# 3. GGPLOT - POPULATION DENSITY AND GASOLINE PRICE
+# 3. FACETED GRID: ALL 6 SETTLEMENT CHARACTERISTICS VS DIESEL & GASOLINE
 
-p2 <- ggplot(final_data,
-             
-             aes(x = POPULATION_DENSITY,
-                 
-                 y = AVG_GASOLINE)) +
-  
-  geom_point(alpha = 0.45, color = "steelblue") +
-  
-  geom_smooth(method = "lm", se = TRUE,
-              
-              color = "darkred") +
+bivariate_all <- final_data %>%
+  select(
+    AVG_DIESEL, AVG_GASOLINE,
+    POPULATION_DENSITY, CARS_PER_1000, GROSS_EARNINGS,
+    CONSTRUCTION_PERMITS, ROAD_CASUALTIES, ARABLE_LAND_SHARE
+  ) %>%
+  pivot_longer(
+    cols = c(AVG_DIESEL, AVG_GASOLINE),
+    names_to = "Fuel",
+    values_to = "Price"
+  ) %>%
+  mutate(Fuel = ifelse(Fuel == "AVG_DIESEL", "Diesel", "Gasoline")) %>%
+  pivot_longer(
+    cols = c(POPULATION_DENSITY, CARS_PER_1000, GROSS_EARNINGS,
+             CONSTRUCTION_PERMITS, ROAD_CASUALTIES, ARABLE_LAND_SHARE),
+    names_to = "Predictor",
+    values_to = "Value"
+  )
+
+p_facet_comp <- ggplot(bivariate_all, aes(x = Value, y = Price, color = Fuel)) +
+  geom_point(alpha = 0.3, size = 1) +
+  geom_smooth(method = "lm", se = TRUE, aes(group = Fuel)) +
+  scale_color_manual(values = c("Diesel" = "steelblue", "Gasoline" = "orange")) +
+  facet_grid(Fuel ~ Predictor, scales = "free_x") +
   labs(
-    
-    title = "Population Density and Gasoline Prices",
-    
-    x = "Population Density (people/km²)",
-    
-    y = "Average Gasoline Price (HUF/l)"
-    
+    title = "Unconditional Bivariate Relationships: Diesel vs. Gasoline Prices",
+    x = "Indicator Value",
+    y = "Average Price (HUF/l)"
   ) +
-  
-  theme_minimal()
+  theme_minimal() +
+  theme(legend.position = "none")
 
-print(p2)
-
-ggsave("POPULATION_GASOLINE.png", p2,
-       
-       width = 7, height = 5, dpi = 300)
+print(p_facet_comp)
+ggsave(file.path(output_folder, "BIVARIATE_FACET_COMPARISON.png"), p_facet_comp, width = 14, height = 7, dpi = 300)
 
 #############REGRESSİONS#################
- 
+
 # MULTIPLE LINEAR REGRESSION - DIESEL
- 
+
 die_m1 <- lm(AVG_DIESEL ~ CARS_PER_1000, data = final_data)
- 
+
 die_m2 <- lm(AVG_DIESEL ~ CARS_PER_1000 +
-
+               
                GROSS_EARNINGS, data = final_data)
- 
+
 die_m3 <- lm(AVG_DIESEL ~ CARS_PER_1000 +
-
+               
                GROSS_EARNINGS +
-
+               
                POPULATION_DENSITY, data = final_data)
- 
+
 die_m4 <- lm(AVG_DIESEL ~ CARS_PER_1000 +
-
+               
                GROSS_EARNINGS +
-
+               
                POPULATION_DENSITY +
-
+               
                CONSTRUCTION_PERMITS, data = final_data)
- 
+
 die_m5 <- lm(AVG_DIESEL ~ CARS_PER_1000 +
-
+               
                GROSS_EARNINGS +
-
+               
                POPULATION_DENSITY +
-
+               
                CONSTRUCTION_PERMITS +
-
+               
                ROAD_CASUALTIES, data = final_data)
- 
+
 die_m6 <- lm(AVG_DIESEL ~ CARS_PER_1000 +
-
+               
                GROSS_EARNINGS +
-
+               
                POPULATION_DENSITY +
-
+               
                CONSTRUCTION_PERMITS +
-
+               
                ROAD_CASUALTIES +
-
+               
                ARABLE_LAND_SHARE, data = final_data)
- 
+
 # Compare all six models
 
 stargazer(
-
+  
   die_m1, die_m2, die_m3,
-
+  
   die_m4, die_m5, die_m6,
-
+  
   type = "text",
-
+  
   title = "Determinants of Diesel Prices",
-
+  
   dep.var.labels = "Average Diesel Price (HUF/l)",
-
+  
   digits = 3
-
+  
 )
 
 # MULTIPLE LINEAR REGRESSION - GASOLINE
 
- 
+
 gas_m1 <- lm(AVG_GASOLINE ~ CARS_PER_1000, data = final_data)
- 
+
 gas_m2 <- lm(AVG_GASOLINE ~ CARS_PER_1000 +
-
+               
                GROSS_EARNINGS, data = final_data)
- 
+
 gas_m3 <- lm(AVG_GASOLINE ~ CARS_PER_1000 +
-
+               
                GROSS_EARNINGS +
-
+               
                POPULATION_DENSITY, data = final_data)
- 
+
 gas_m4 <- lm(AVG_GASOLINE ~ CARS_PER_1000 +
-
+               
                GROSS_EARNINGS +
-
+               
                POPULATION_DENSITY +
-
+               
                CONSTRUCTION_PERMITS, data = final_data)
- 
+
 gas_m5 <- lm(AVG_GASOLINE ~ CARS_PER_1000 +
-
+               
                GROSS_EARNINGS +
-
+               
                POPULATION_DENSITY +
-
+               
                CONSTRUCTION_PERMITS +
-
+               
                ROAD_CASUALTIES, data = final_data)
- 
+
 gas_m6 <- lm(AVG_GASOLINE ~ CARS_PER_1000 +
-
+               
                GROSS_EARNINGS +
-
+               
                POPULATION_DENSITY +
-
+               
                CONSTRUCTION_PERMITS +
-
+               
                ROAD_CASUALTIES +
-
+               
                ARABLE_LAND_SHARE, data = final_data)
- 
+
 # Compare all six models
 
 stargazer(
-
+  
   gas_m1, gas_m2, gas_m3,
-
+  
   gas_m4, gas_m5, gas_m6,
-
+  
   type = "text",
-
+  
   title = "Determinants of Gasoline Prices",
-
+  
   dep.var.labels = "Average Gasoline Price (HUF/l)",
-
+  
   digits = 3
-
+  
 )
 
 # FINAL COMPARISON - DIESEL VS GASOLINE
 
 stargazer(
-
+  
   die_m6, gas_m6,
-
+  
   type = "text",
-
+  
   title = "Comparison of Diesel and Gasoline Prices",
-
+  
   column.labels = c("Diesel", "Gasoline"),
-
+  
   dep.var.labels = "Average Fuel Price (HUF/l)",
-
+  
   digits = 3
-
+  
 )
- 
- 
+
